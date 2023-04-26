@@ -78,4 +78,27 @@ Case2 | 7 | 3 | 209,252 | 25,056
 Case3 | 1, 7 | 3 | 209,252 | 25,056
 
 
+## Processed Columns
 
+변수 설명은 비밀입니다
+
+- pp_id
+- Inverter
+- Date
+- Total Yield(kWh)
+- Total Yield(kWh)_-1day
+- Total Yield(kWh)_-7day
+- si_gun
+- pp_lati
+- pp_longi
+- temp
+- precipitation
+- wind_speed
+- wind_direction
+- humid
+- atmo_pressure
+- sunshine
+- solar_radiation
+- snow_cover
+- cloud_cover
+- ground_temp
