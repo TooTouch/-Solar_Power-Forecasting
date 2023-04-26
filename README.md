@@ -86,9 +86,8 @@ Case3 | 1, 7 | 3 | 209,252 | 25,056
 - Inverter
 - Date
 - Total Yield(kWh)
-- Total Yield(kWh)_-1day
-- Total Yield(kWh)_-7day
-- si_gun
+- Total Yield(kWh)_1day
+- Total Yield(kWh)_7day
 - pp_lati
 - pp_longi
 - temp
