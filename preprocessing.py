@@ -33,8 +33,13 @@ def fill_missing_target(df: pd.DataFrame) -> pd.DataFrame:
     add missing target date and values
     '''
     
-    # add missing date
+    # make date range
     all_date = pd.date_range(start=df['Date'].min(), end=df['Date'].max(), freq='H')
+    
+    # check the number of missing values
+    nb_missing = len(all_date) - len(df['Date'].unique())
+    
+    # add missing date
     df = pd.merge(df, pd.Series(all_date, name='Date'), on='Date', how='outer').sort_values('Date')
     
     # fillna
@@ -42,7 +47,7 @@ def fill_missing_target(df: pd.DataFrame) -> pd.DataFrame:
     df_filled = df.fillna(method='ffill')
     df_filled = df_filled.fillna(method='bfill')
     
-    return df_filled
+    return df_filled, nb_missing
 
 def make_target(df: pd.DataFrame, target: str, target_day: list = [1, 7]) -> pd.DataFrame:
     '''
@@ -79,6 +84,9 @@ def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [
     for path in data_list:
         df = pd.concat([df, read_file(file_path=path)], axis=0)
         
+    # drop duplicates
+    df = df.drop_duplicates()
+    
     # select columns
     df = df[selected_cols + [target]]
     
@@ -90,11 +98,13 @@ def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [
     
     # make targets by value of Inverter column. ex) ['KACO 1','KACO 2']
     df_target = pd.DataFrame()
+    nb_missing = 0
     for inverter in df['Inverter'].unique():
         df_i = df[df['Inverter']==inverter]
         
         # add missing target
-        df_i = fill_missing_target(df=df_i)
+        df_i, nb_missing_i = fill_missing_target(df=df_i)
+        nb_missing += nb_missing_i
         
         # make targets
         df_i = make_target(df=df_i, target=target, target_day=target_day)
@@ -102,7 +112,7 @@ def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [
         # concat result
         df_target = pd.concat([df_target, df_i], axis=0)
         
-    return df_target
+    return df_target, nb_missing
 
 
 def mapping_plant_id(x: str, plant_name_id: dict) -> str:
@@ -159,10 +169,12 @@ def run(args):
     
     # read all plant data and concatenate dataframe
     plant_df = pd.DataFrame()
+    nb_missing = 0
     for p_dir in plant_list:
-        df_p = read_plant_data_and_target(plant_dir=p_dir, target=args.target, target_day=args.target_day)
+        df_p, nb_missing_p = read_plant_data_and_target(plant_dir=p_dir, target=args.target, target_day=args.target_day)
+        
+        nb_missing += nb_missing_p
         plant_df = pd.concat([plant_df, df_p], axis=0)
-
 
     # mapping values of Plant column into plant id using plant information
     plant_df['Plant'] = plant_df['Plant'].apply(lambda x: mapping_plant_id(
@@ -172,7 +184,7 @@ def run(args):
 
     # change 'Plant' to 'pp_id'
     plant_df = plant_df.rename(columns={'Plant':'pp_id'})
-    print(f'[READ] plant data: {plant_df.shape}')
+    print(f'[READ] plant data: {plant_df.shape} and total filled missing value: {nb_missing}')
     
     # ==================
     # read weather data
