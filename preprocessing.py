@@ -56,12 +56,12 @@ def make_target(df: pd.DataFrame, target: str, target_day: list = [1, 7]) -> pd.
     
     
     # init target
-    df_init = df[['Date',target]].set_index('Date')
+    df_init = df[['Date',f'{target}_diff']].set_index('Date')
     
     # make target day
     for d in target_day:
         df_target = df_init.shift(periods=-d, freq='D')
-        df_target = df_target.rename(columns={target: target+f'_{d}day'})
+        df_target = df_target.rename(columns={f'{target}_diff': f'{target}_diff_{d}day'})
         
         df = pd.merge(df, df_target.reset_index(), on='Date', how='left')
         
@@ -71,7 +71,31 @@ def make_target(df: pd.DataFrame, target: str, target_day: list = [1, 7]) -> pd.
     return df
     
 
-def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [1, 7]) -> pd.DataFrame:
+def make_diff(df: pd.DataFrame, target: str) -> pd.DataFrame:
+    '''
+    make difference: today - yesterday
+    '''
+    
+    # init target
+    df_init = df[['Date',target]].set_index('Date')
+    
+    # shift yesterday
+    df_shift = df_init.shift(periods=1, freq='H')
+    
+    # difference
+    df_diff = (df_init[target] - df_shift[target]).reset_index()
+    df_diff = df_diff.rename(columns={target: target+'_diff'})
+    
+    # merge
+    df = pd.merge(df, df_diff, on='Date', how='left')
+    
+    # drop last day
+    df = df.dropna()
+    
+    return df
+
+
+def read_plant_data_and_target(plant_dir: str, target: str, plant_info: pd.DataFrame, target_day: list = [1, 7]) -> pd.DataFrame:
     '''
     read plant data and make targets
     '''
@@ -84,14 +108,20 @@ def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [
     for path in data_list:
         df = pd.concat([df, read_file(file_path=path)], axis=0)
         
-    # drop duplicates
-    df = df.drop_duplicates()
-    
     # select columns
     df = df[selected_cols + [target]]
     
     # change Date type into pd.datetime
     df['Date'] = pd.to_datetime(df['Date'])
+    
+    # mapping values of Plant column into plant id using plant information
+    df['Plant'] = df['Plant'].apply(lambda x: mapping_plant_id(
+        x             = x,
+        plant_name_id = dict(zip(plant_info['pp_name'], plant_info['pp_id']))
+    ))
+    
+    # drop duplicates
+    df = df.drop_duplicates()
     
     # sort by Inverter and Date columns
     df = df.sort_values(['Inverter','Date'])
@@ -105,6 +135,9 @@ def read_plant_data_and_target(plant_dir: str, target: str, target_day: list = [
         # add missing target
         df_i, nb_missing_i = fill_missing_target(df=df_i)
         nb_missing += nb_missing_i
+        
+        # make diff
+        df_i = make_diff(df=df_i, target=target)
         
         # make targets
         df_i = make_target(df=df_i, target=target, target_day=target_day)
@@ -171,16 +204,10 @@ def run(args):
     plant_df = pd.DataFrame()
     nb_missing = 0
     for p_dir in plant_list:
-        df_p, nb_missing_p = read_plant_data_and_target(plant_dir=p_dir, target=args.target, target_day=args.target_day)
+        df_p, nb_missing_p = read_plant_data_and_target(plant_dir=p_dir, target=args.target, plant_info=plant_info, target_day=args.target_day)
         
         nb_missing += nb_missing_p
         plant_df = pd.concat([plant_df, df_p], axis=0)
-
-    # mapping values of Plant column into plant id using plant information
-    plant_df['Plant'] = plant_df['Plant'].apply(lambda x: mapping_plant_id(
-        x             = x,
-        plant_name_id = dict(zip(plant_info['pp_name'],plant_info['pp_id']))
-    ))
 
     # change 'Plant' to 'pp_id'
     plant_df = plant_df.rename(columns={'Plant':'pp_id'})
