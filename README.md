@@ -24,6 +24,7 @@ data
 
 **Plant data**
 - 시간 단위로 데이터 정리
+- Total Yield(kWh)를 이전 시간과 차이를 계산하여 해당 시간의 생산량으로 변환
 - target은 일(day)를 기준으로 생성 (ex. 하루 뒤 or 일주일 뒤)
 - 발전소 내 `Inverter` 별 중간에 데이터가 수집이 안된 일자(date)의 경우 'ffill' -> 'bfill' 순으로 처리함
 
